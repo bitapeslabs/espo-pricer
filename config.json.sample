@@ -1,0 +1,17 @@
+{
+  "rpc_host": "127.0.0.1",
+  "rpc_port": 8080,
+  "binance_api_key": "",
+  "binance_api_secret": "",
+  "binance_base_url": "https://data-api.binance.vision",
+  "binance_symbol": "BTCUSDT",
+  "metashrew_rpc_url": "http://127.0.0.1:8081",
+  "db_path": "./db/espopricer.rocks",
+  "min_height": 0,
+  "bitcoin_core_rpc_host": "127.0.0.1",
+  "bitcoin_core_rpc_port": 8332,
+  "bitcoin_core_rpc_username": "bitcoinrpc",
+  "bitcoin_core_rpc_password": "change-me",
+  "poll_interval_ms": 5000,
+  "price_decimals": 8
+}
