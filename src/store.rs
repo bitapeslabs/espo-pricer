@@ -76,6 +76,13 @@ impl PriceStore {
             .transpose()
     }
 
+    pub fn latest_price_point(&self) -> Result<Option<PricePoint>> {
+        let Some(height) = self.read_u64(META_LAST_INDEXED_HEIGHT)? else {
+            return Ok(None);
+        };
+        self.get_price_point(height)
+    }
+
     pub fn put_candles(&self, candles: &[CachedCandle]) -> Result<usize> {
         if candles.is_empty() {
             return Ok(0);

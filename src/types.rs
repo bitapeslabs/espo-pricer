@@ -18,6 +18,7 @@ pub struct CachedCandle {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PriceResponse {
+    pub height: u64,
     pub price_scaled: String,
     pub price_raw: String,
 }

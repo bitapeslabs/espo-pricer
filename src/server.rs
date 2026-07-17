@@ -77,31 +77,66 @@ fn get_btc_price_at_height(state: &AppState, id: Value, params: Value) -> JsonRp
         Err(message) => return error_response(id, -32602, &message),
     };
 
-    match state.store.get_price_point(height) {
+    let point = match height {
+        HeightParam::Exact(height) => state.store.get_price_point(height),
+        HeightParam::Latest => state.store.latest_price_point(),
+    };
+
+    match point {
         Ok(Some(point)) => success_response(id, json!(to_price_response(point))),
-        Ok(None) => error_response(id, -32004, "height has not been indexed"),
+        Ok(None) => {
+            let message = match height {
+                HeightParam::Exact(_) => "height has not been indexed",
+                HeightParam::Latest => "no indexed prices are available yet",
+            };
+            error_response(id, -32004, message)
+        }
         Err(err) => error_response(id, -32000, &format!("failed to read price: {err}")),
     }
 }
 
-fn parse_height_param(params: Value) -> Result<u64, String> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HeightParam {
+    Exact(u64),
+    Latest,
+}
+
+fn parse_height_param(params: Value) -> Result<HeightParam, String> {
     match params {
-        Value::Object(map) => map
-            .get("height")
-            .and_then(Value::as_u64)
-            .ok_or_else(|| "params.height must be an unsigned integer".to_string()),
-        Value::Array(items) if items.len() == 1 => items[0]
-            .as_u64()
-            .ok_or_else(|| "params[0] must be an unsigned integer".to_string()),
+        Value::Null => Ok(HeightParam::Latest),
+        Value::Object(map) => match map.get("height") {
+            Some(value) => parse_height_value(value, "params.height"),
+            None => Ok(HeightParam::Latest),
+        },
+        Value::Array(items) if items.is_empty() => Ok(HeightParam::Latest),
+        Value::Array(items) if items.len() == 1 => parse_height_value(&items[0], "params[0]"),
+        Value::Number(_) | Value::String(_) => parse_height_value(&params, "params"),
+        _ => Err(
+            "params must be omitted, empty, \"latest\", or include an unsigned integer height"
+                .to_string(),
+        ),
+    }
+}
+
+fn parse_height_value(value: &Value, label: &str) -> Result<HeightParam, String> {
+    match value {
+        Value::Null => Ok(HeightParam::Latest),
         Value::Number(number) => number
             .as_u64()
-            .ok_or_else(|| "params must be an unsigned integer".to_string()),
-        _ => Err("params must be an object like {\"height\": 850000}".to_string()),
+            .map(HeightParam::Exact)
+            .ok_or_else(|| format!("{label} must be an unsigned integer")),
+        Value::String(raw) if raw.eq_ignore_ascii_case("latest") => Ok(HeightParam::Latest),
+        Value::String(raw) => raw
+            .parse::<u64>()
+            .map(HeightParam::Exact)
+            .map_err(|_| format!("{label} must be an unsigned integer or \"latest\"")),
+        _ => Err(format!("{label} must be an unsigned integer or \"latest\"")),
     }
 }
 
 fn to_price_response(point: PricePoint) -> PriceResponse {
     PriceResponse {
+        height: point.height,
         price_scaled: point.price_scaled,
         price_raw: point.price_raw,
     }
@@ -136,12 +171,21 @@ mod tests {
     fn parses_object_height_param() {
         assert_eq!(
             parse_height_param(json!({ "height": 840000 })).unwrap(),
-            840000
+            HeightParam::Exact(840000)
         );
     }
 
     #[test]
-    fn rejects_missing_height_param() {
-        assert!(parse_height_param(json!({})).is_err());
+    fn defaults_missing_height_param_to_latest() {
+        assert_eq!(
+            parse_height_param(Value::Null).unwrap(),
+            HeightParam::Latest
+        );
+        assert_eq!(parse_height_param(json!({})).unwrap(), HeightParam::Latest);
+        assert_eq!(parse_height_param(json!([])).unwrap(), HeightParam::Latest);
+        assert_eq!(
+            parse_height_param(json!({ "height": "latest" })).unwrap(),
+            HeightParam::Latest
+        );
     }
 }

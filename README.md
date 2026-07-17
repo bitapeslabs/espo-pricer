@@ -62,16 +62,24 @@ curl -sS http://127.0.0.1:8080/ \
   --data '{"jsonrpc":"2.0","id":1,"method":"get_btc_price_at_height","params":{"height":850000}}'
 ```
 
+If `params` is omitted, `null`, `{}`, `[]`, or `"latest"`, the latest indexed height is returned:
+
+```bash
+curl -sS http://127.0.0.1:8080/ \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"get_btc_price_at_height"}'
+```
+
 Response:
 
 ```json
 {
   "jsonrpc": "2.0",
   "result": {
+    "height": 850000,
     "price_scaled": "64123.45000000",
     "price_raw": "6412345000000"
   },
   "id": 1
 }
 ```
-# espo-pricer
